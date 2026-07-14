@@ -19,6 +19,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Inyección de dependencias: puertos de salida
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();
 builder.Services.AddScoped<StudentService>();
+builder.Services.AddScoped<IPendingRegistrationRepository, PendingRegistrationRepository>();
+builder.Services.AddScoped<PendingRegistrationService>();
 
 // Controladores + Swagger
 builder.Services.AddControllers();

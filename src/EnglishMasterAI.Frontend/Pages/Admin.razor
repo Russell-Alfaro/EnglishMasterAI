@@ -1,0 +1,267 @@
+@page "/admin"
+@using System.Net.Http.Json
+@using System.Net.Http.Headers
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Admin — EnglishMasterAI</PageTitle>
+
+<div class="dashboard-page">
+    @if (!_isAuthenticated)
+    {
+        <div class="register-card" style="max-width: 420px; margin: 60px auto;">
+            <div class="register-header">
+                <div class="logo">🔐</div>
+                <h1 class="brand-title" style="font-size: 1.4rem;">Panel de Administrador</h1>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <div class="alert alert-error">@_errorMessage</div>
+            }
+
+            <div class="form-group">
+                <label>Contraseña</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">🔑</span>
+                    <input type="password" class="form-input" @bind="_passwordInput"
+                           @onkeydown="HandleKeyDown" placeholder="Contraseña de administrador" />
+                </div>
+            </div>
+
+            <button class="btn-primary" @onclick="TryLogin" disabled="@_isLoading">
+                @(_isLoading ? "Verificando..." : "Ingresar")
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="section-title mb-0">🗂️ Solicitudes de Registro Pendientes</h2>
+            <button class="btn btn-outline-secondary btn-sm" @onclick="LoadPending" disabled="@_isLoading">
+                🔄 Actualizar
+            </button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div class="alert alert-error mb-3">@_errorMessage</div>
+        }
+        @if (!string.IsNullOrEmpty(_successMessage))
+        {
+            <div class="alert alert-success mb-3">@_successMessage</div>
+        }
+
+        @if (_isLoading && _pending is null)
+        {
+            <div class="loading-container">
+                <div class="spinner-large"></div>
+                <p>Cargando solicitudes...</p>
+            </div>
+        }
+        else if (_pending is null || _pending.Count == 0)
+        {
+            <p class="text-muted">No hay solicitudes pendientes por revisar. 🎉</p>
+        }
+        else
+        {
+            <div class="d-flex flex-column gap-3">
+                @foreach (var reg in _pending)
+                {
+                    <div class="actions-card">
+                        <div class="d-flex justify-content-between flex-wrap gap-2 mb-2">
+                            <div>
+                                <h4 class="mb-1">@reg.FullName</h4>
+                                <p class="text-muted small mb-0">@reg.Email</p>
+                            </div>
+                            <div class="text-end">
+                                <div style="font-size: 1.3rem; font-weight: 800; color: var(--color-accent-gold);">
+                                    S/ @reg.AmountDue.ToString("0.00")
+                                </div>
+                                <span class="text-muted small">Nivel @reg.InitialLevel</span>
+                            </div>
+                        </div>
+
+                        <p class="text-muted small mb-2">
+                            Solicitado el @reg.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                        </p>
+
+                        <div class="mb-3">
+                            <img src="@GetReceiptUrl(reg.Id)" alt="Comprobante de pago"
+                                 style="max-width: 260px; width: 100%; border-radius: 8px; border: 1px solid var(--color-border); cursor: pointer;"
+                                 @onclick="() => OpenImageFullSize(reg.Id)" />
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success" disabled="@_isLoading"
+                                    @onclick="() => Approve(reg.Id)">
+                                ✅ Aprobar
+                            </button>
+                            <button class="btn btn-danger" disabled="@_isLoading"
+                                    @onclick="() => Reject(reg.Id)">
+                                ❌ Rechazar
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private bool _isAuthenticated = false;
+    private string _passwordInput = string.Empty;
+    private string _adminPassword = string.Empty;
+
+    private bool _isLoading = false;
+    private string _errorMessage = string.Empty;
+    private string _successMessage = string.Empty;
+
+    private List<PendingRegistrationSummaryDto>? _pending;
+
+    private async Task HandleKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await TryLogin();
+    }
+
+    private async Task TryLogin()
+    {
+        _isLoading = true;
+        _errorMessage = string.Empty;
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "api/admin/registrations/pending");
+        request.Headers.Add("X-Admin-Password", _passwordInput);
+
+        try
+        {
+            var response = await Http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _adminPassword = _passwordInput;
+                _isAuthenticated = true;
+                _pending = await response.Content.ReadFromJsonAsync<List<PendingRegistrationSummaryDto>>();
+            }
+            else
+            {
+                _errorMessage = "Contraseña incorrecta.";
+            }
+        }
+        catch
+        {
+            _errorMessage = "No se pudo conectar con el servidor.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadPending()
+    {
+        _isLoading = true;
+        _errorMessage = string.Empty;
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "api/admin/registrations/pending");
+        request.Headers.Add("X-Admin-Password", _adminPassword);
+
+        try
+        {
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                _pending = await response.Content.ReadFromJsonAsync<List<PendingRegistrationSummaryDto>>();
+            }
+            else
+            {
+                _errorMessage = "Tu sesión expiró, vuelve a ingresar la contraseña.";
+                _isAuthenticated = false;
+            }
+        }
+        catch
+        {
+            _errorMessage = "No se pudo conectar con el servidor.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private string GetReceiptUrl(Guid id) => $"{Http.BaseAddress}api/admin/registrations/{id}/receipt";
+
+    private void OpenImageFullSize(Guid id)
+    {
+        Navigation.NavigateTo(GetReceiptUrl(id), forceLoad: true);
+    }
+
+    private async Task Approve(Guid id)
+    {
+        _isLoading = true;
+        _errorMessage = string.Empty;
+        _successMessage = string.Empty;
+
+        var request = new HttpRequestMessage(HttpMethod.Post, $"api/admin/registrations/{id}/approve");
+        request.Headers.Add("X-Admin-Password", _adminPassword);
+
+        try
+        {
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                _successMessage = "Solicitud aprobada. El estudiante ya puede iniciar sesión.";
+                await LoadPending();
+            }
+            else
+            {
+                _errorMessage = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch
+        {
+            _errorMessage = "No se pudo conectar con el servidor.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task Reject(Guid id)
+    {
+        _isLoading = true;
+        _errorMessage = string.Empty;
+        _successMessage = string.Empty;
+
+        var request = new HttpRequestMessage(HttpMethod.Post, $"api/admin/registrations/{id}/reject");
+        request.Headers.Add("X-Admin-Password", _adminPassword);
+        request.Content = JsonContent.Create(new { reason = (string?)null });
+
+        try
+        {
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                _successMessage = "Solicitud rechazada.";
+                await LoadPending();
+            }
+            else
+            {
+                _errorMessage = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch
+        {
+            _errorMessage = "No se pudo conectar con el servidor.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    public record PendingRegistrationSummaryDto(
+        Guid Id, string FullName, string Email, string InitialLevel,
+        decimal AmountDue, string Status, DateTime CreatedAt);
+}

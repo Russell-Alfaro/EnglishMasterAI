@@ -36,3 +36,16 @@ public class StudentNotFoundException : DomainException
         StudentId = studentId;
     }
 }
+/// <summary>
+/// Excepción lanzada cuando no se encuentra una solicitud de registro pendiente por ID.
+/// </summary>
+public class PendingRegistrationNotFoundException : DomainException
+{
+    public Guid RegistrationId { get; }
+
+    public PendingRegistrationNotFoundException(Guid registrationId)
+        : base($"No se encontró ninguna solicitud de registro con el ID '{registrationId}'.")
+    {
+        RegistrationId = registrationId;
+    }
+}

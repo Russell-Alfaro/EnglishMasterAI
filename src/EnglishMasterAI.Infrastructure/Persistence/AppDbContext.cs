@@ -10,7 +10,8 @@ public class AppDbContext : DbContext
     public DbSet<Student> Students => Set<Student>();
     public DbSet<Lesson> Lessons => Set<Lesson>();
     public DbSet<Practice> Practices => Set<Practice>();
-
+    public DbSet<PendingRegistration> PendingRegistrations => Set<PendingRegistration>();
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -41,5 +42,15 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Practice>()
             .Property(p => p.Id)
             .ValueGeneratedNever();
+
+        // Mismo motivo que arriba: el Id de PendingRegistration también lo
+        // genera el dominio con Guid.NewGuid().
+        modelBuilder.Entity<PendingRegistration>()
+            .Property(r => r.Id)
+            .ValueGeneratedNever();
+
+        modelBuilder.Entity<PendingRegistration>()
+            .Property(r => r.AmountDue)
+            .HasColumnType("decimal(10,2)");
     }
 }
