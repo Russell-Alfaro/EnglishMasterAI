@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/EnglishMasterAI.API/EnglishMasterAI.API.csproj" />
+    <Project Path="src/EnglishMasterAI.Application/EnglishMasterAI.Application.csproj" />
+    <Project Path="src/EnglishMasterAI.Domain/EnglishMasterAI.Domain.csproj" />
+    <Project Path="src/EnglishMasterAI.Frontend/EnglishMasterAI.Frontend.csproj" />
+    <Project Path="src/EnglishMasterAI.Infrastructure/EnglishMasterAI.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/EnglishMasterAI.Tests.Unit/EnglishMasterAI.Tests.Unit.csproj" />
+  </Folder>
+</Solution>

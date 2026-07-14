@@ -1,0 +1,137 @@
+@page "/quiz"
+@inject NavigationManager Navigation
+
+<PageTitle>Quiz Rápido — EnglishMasterAI</PageTitle>
+
+<div class="dashboard-page" style="max-width: 600px; margin: 0 auto; margin-top: 40px;">
+    <h2 class="section-title text-center mb-4">🧠 Quiz Rápido</h2>
+
+    @if (_isFinished)
+    {
+        <div class="action-form p-4 text-center" style="background-color: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 12px;">
+            <h3 class="mb-3">¡Quiz Finalizado! 🏆</h3>
+            <h1 class="display-4 text-primary mb-3">@_score / @_questions.Count</h1>
+            <p class="text-muted mb-4">Has completado todas las preguntas del quiz rápido.</p>
+            <button class="btn btn-primary" @onclick="GoBack">Volver al Dashboard</button>
+        </div>
+    }
+    else
+    {
+        var currentQ = _questions[_currentQuestionIndex];
+        
+        <div class="action-form p-4" style="background-color: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 12px;" @key="_currentQuestionIndex">
+            <div class="d-flex justify-content-between mb-3 text-muted small">
+                <span>Pregunta @(_currentQuestionIndex + 1) de @_questions.Count</span>
+                <span>Puntos: @_score</span>
+            </div>
+            
+            <h4 class="mb-3">@currentQ.Text</h4>
+
+            <div class="d-flex flex-column gap-2 mb-4">
+                @for (int i = 0; i < currentQ.Options.Length; i++)
+                {
+                    int index = i;
+                    <button class="btn @GetButtonClass(index)" @onclick="() => CheckAnswer(index)">@currentQ.Options[index]</button>
+                }
+            </div>
+
+            @if (_hasAnswered)
+            {
+                <div class="alert @(_isCorrect ? "alert-success" : "alert-danger") mt-3">
+                    @if (_isCorrect)
+                    {
+                        <strong>¡Correcto! 🎉</strong>
+                    }
+                    else
+                    {
+                        <strong>Incorrecto ❌</strong>
+                    }
+                    <p class="mb-0">@currentQ.Explanation</p>
+                </div>
+
+                <div class="text-center mt-4">
+                    <button class="btn btn-primary w-100" @onclick="NextQuestion">
+                        @(_currentQuestionIndex < _questions.Count - 1 ? "Siguiente Pregunta ➡️" : "Ver Resultados 📊")
+                    </button>
+                </div>
+            }
+            else
+            {
+                <div class="text-center mt-4">
+                    <button class="btn btn-secondary" @onclick="GoBack">Volver al Panel</button>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private bool _hasAnswered = false;
+    private bool _isCorrect = false;
+    private int _selectedIndex = -1;
+    private int _currentQuestionIndex = 0;
+    private int _score = 0;
+    private bool _isFinished = false;
+
+    private class QuizQuestion
+    {
+        public string Text { get; set; } = string.Empty;
+        public string[] Options { get; set; } = Array.Empty<string>();
+        public int CorrectIndex { get; set; }
+        public string Explanation { get; set; } = string.Empty;
+    }
+
+    private readonly List<QuizQuestion> _questions = new()
+    {
+        new QuizQuestion { Text = "¿Cómo se dice \"logro\" en inglés?", Options = new[] { "Achievement", "Adventure", "Archive", "Pain" }, CorrectIndex = 0, Explanation = "\"Achievement\" proviene del verbo \"achieve\" (lograr)." },
+        new QuizQuestion { Text = "¿Cómo se dice \"medio ambiente\" en inglés?", Options = new[] { "Entertainment", "Shipping", "Environment", "Wrapping" }, CorrectIndex = 2, Explanation = "\"Environment\" se refiere al entorno natural o medio ambiente." },
+        new QuizQuestion { Text = "¿Cómo se dice \"conocimiento\" en inglés?", Options = new[] { "Know", "Knee", "Edge", "Knowledge" }, CorrectIndex = 3, Explanation = "\"Knowledge\" viene del verbo \"know\" (saber/conocer)." },
+        new QuizQuestion { Text = "¿Cómo se dice \"descubrimiento afortunado\" en inglés?", Options = new[] { "Serenity", "Serendipity", "Sadness", "Bad luck" }, CorrectIndex = 1, Explanation = "\"Serendipity\" es un hallazgo valioso que se produce de manera accidental." },
+        new QuizQuestion { Text = "¿Cómo se dice \"por lo tanto\" en inglés?", Options = new[] { "Thereto", "Through", "Thought", "Therefore" }, CorrectIndex = 3, Explanation = "\"Therefore\" es un conector lógico que significa 'por consiguiente'." },
+        new QuizQuestion { Text = "¿Cómo se dice \"asombroso / genial\" en inglés?", Options = new[] { "Horrible", "Boring", "Awesome", "Tired" }, CorrectIndex = 2, Explanation = "\"Awesome\" se usa para describir algo impresionante o muy bueno." },
+        new QuizQuestion { Text = "¿Cuál es el opuesto de \"Increase\" en inglés?", Options = new[] { "Decrease", "Release", "Please", "Cease" }, CorrectIndex = 0, Explanation = "\"Increase\" es aumentar, \"Decrease\" es disminuir." },
+        new QuizQuestion { Text = "¿Cómo se dice el phrasal verb \"averiguar\" en inglés?", Options = new[] { "To draw out", "To break out", "To figure out", "To count out" }, CorrectIndex = 2, Explanation = "\"To figure out\" es un phrasal verb que significa resolver o descubrir algo." },
+        new QuizQuestion { Text = "¿Cómo se dice \"mientras tanto\" en inglés?", Options = new[] { "However", "Meanwhile", "Despite", "Because" }, CorrectIndex = 1, Explanation = "\"Meanwhile\" se usa para indicar que dos cosas suceden al mismo tiempo." },
+        new QuizQuestion { Text = "¿Cómo se dice \"abrumador\" en inglés?", Options = new[] { "Underneath", "Light", "Fun", "Overwhelming" }, CorrectIndex = 3, Explanation = "\"Overwhelming\" describe algo tan grande o intenso que es difícil de manejar." }
+    };
+
+    private void CheckAnswer(int index)
+    {
+        if (_hasAnswered) return;
+        _selectedIndex = index;
+        _isCorrect = (index == _questions[_currentQuestionIndex].CorrectIndex);
+        if (_isCorrect) _score++;
+        _hasAnswered = true;
+    }
+
+    private void NextQuestion()
+    {
+        if (_currentQuestionIndex < _questions.Count - 1)
+        {
+            _currentQuestionIndex++;
+            _hasAnswered = false;
+            _selectedIndex = -1;
+            _isCorrect = false;
+        }
+        else
+        {
+            _isFinished = true;
+        }
+    }
+
+    private string GetButtonClass(int index)
+    {
+        if (!_hasAnswered) return "btn-outline-primary";
+        
+        var correctIndex = _questions[_currentQuestionIndex].CorrectIndex;
+        if (index == correctIndex) return "btn-success"; 
+        if (index == _selectedIndex) return "btn-danger"; 
+
+        return "btn-outline-secondary"; 
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/students");
+    }
+}

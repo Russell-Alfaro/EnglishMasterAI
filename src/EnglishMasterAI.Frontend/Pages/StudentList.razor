@@ -1,0 +1,273 @@
+@page "/students"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Estudiantes — EnglishMasterAI</PageTitle>
+
+<div class="container py-4">
+
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="fw-bold mb-1">
+                <i class="bi bi-people-fill me-2 text-primary"></i>Panel de Estudiantes
+            </h1>
+            <p class="text-muted mb-0">Todos los estudiantes registrados en la plataforma.</p>
+        </div>
+        <a href="/register" class="btn btn-primary px-4">
+            <i class="bi bi-person-plus-fill me-2"></i>Nuevo Estudiante
+        </a>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-large"></div>
+            <p>Cargando estudiantes...</p>
+        </div>
+    }
+    else if (_errorMessage is not null)
+    {
+        <div class="alert alert-danger d-flex align-items-center" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <div>@_errorMessage</div>
+        </div>
+    }
+    else if (_students is null || _students.Count == 0)
+    {
+        <div class="text-center py-5">
+            <div class="display-1 mb-3">🎓</div>
+            <h4 class="fw-bold mb-2">Aún no hay estudiantes</h4>
+            <p class="text-muted mb-4">Sé el primero en registrarte en la plataforma.</p>
+            <a href="/register" class="btn btn-primary btn-lg px-5">
+                <i class="bi bi-rocket-takeoff-fill me-2"></i>Registrarme ahora
+            </a>
+        </div>
+    }
+    else
+    {
+        <!-- Contador -->
+        <div class="mb-3">
+            <span class="badge bg-primary fs-6 px-3 py-2">
+                <i class="bi bi-person-check-fill me-1"></i>@_students.Count estudiante(s)
+            </span>
+        </div>
+
+        <!-- Tabla de estudiantes -->
+        <div class="student-table-wrapper">
+            <table class="student-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Estudiante</th>
+                        <th>Correo</th>
+                        <th>Idioma</th>
+                        <th>Nivel</th>
+                        <th>Puntos</th>
+                        <th>Lecciones</th>
+                        <th>Estado</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int i = 0; i < _students.Count; i++)
+                    {
+                        var s = _students[i];
+                        var rowIndex = i + 1;
+                        <tr>
+                            <td class="text-muted">@rowIndex</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="student-avatar-sm">@GetInitials(s.FullName)</div>
+                                    <span class="fw-semibold">@s.FullName</span>
+                                </div>
+                            </td>
+                            <td class="text-muted small">@s.Email</td>
+                            <td>
+                                <span class="lang-badge">@GetLangFlag(s.NativeLanguage) @s.NativeLanguage</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">@s.ProficiencyLevel</span>
+                            </td>
+                            <td>
+                                <span class="score-value">⭐ @s.CurrentLevelScore</span>
+                            </td>
+                            <td>
+                                <span class="lessons-value">📚 @s.TotalLessonsCompleted</span>
+                            </td>
+                            <td>
+                                @if (s.IsActive)
+                                {
+                                    <span class="status-badge status-active">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="status-badge status-inactive">Inactivo</span>
+                                }
+                            </td>
+                            <td>
+                                <button class="btn-profile" @onclick="() => GoToDashboard(s.Id)"
+                                        id="btn-profile-@s.Id">
+                                    <i class="bi bi-speedometer2 me-1"></i>Ver Perfil
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+</div>
+
+<style>
+    /* ── Tabla de estudiantes ──────────────────────────────────────── */
+    .student-table-wrapper {
+        overflow-x: auto;
+        border-radius: 16px;
+        border: 1px solid rgba(79,142,247,0.15);
+        background: rgba(255,255,255,0.03);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+
+    .student-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+
+    .student-table thead tr {
+        background: rgba(79,142,247,0.1);
+        border-bottom: 1px solid rgba(79,142,247,0.2);
+    }
+
+    .student-table th {
+        padding: 1rem 1.25rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #94a3b8;
+        white-space: nowrap;
+    }
+
+    .student-table td {
+        padding: 0.9rem 1.25rem;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        color: #f1f5f9;
+        vertical-align: middle;
+    }
+
+    .student-table tbody tr:last-child td { border-bottom: none; }
+
+    .student-table tbody tr:hover {
+        background: rgba(79,142,247,0.06);
+        transition: background 0.2s;
+    }
+
+    /* Avatar pequeño */
+    .student-avatar-sm {
+        width: 36px; height: 36px; border-radius: 50%;
+        background: linear-gradient(135deg, #4f8ef7, #a78bfa);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.85rem; font-weight: 700; color: white;
+        flex-shrink: 0;
+    }
+
+    /* Badges */
+    .lang-badge {
+        display: inline-block;
+        padding: 0.2rem 0.65rem;
+        background: rgba(255,255,255,0.07);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 999px;
+        font-size: 0.78rem;
+        color: #cbd5e1;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 0.2rem 0.65rem;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
+    .status-active   { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.25); }
+    .status-inactive { background: rgba(248,113,113,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.25); }
+
+    .score-value   { color: #fbbf24; font-weight: 600; }
+    .lessons-value { color: #60a5fa; font-weight: 600; }
+
+    /* Botón Ver Perfil */
+    .btn-profile {
+        display: inline-flex; align-items: center;
+        padding: 0.4rem 0.9rem;
+        background: linear-gradient(135deg, #4f8ef7, #a78bfa);
+        border: none; border-radius: 8px;
+        color: white; font-size: 0.82rem; font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .btn-profile:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(79,142,247,0.4);
+    }
+</style>
+
+@code {
+    private List<StudentSummaryDto>? _students;
+    private bool _isLoading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _students = await Http.GetFromJsonAsync<List<StudentSummaryDto>>("api/students");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"No se pudo cargar la lista de estudiantes. {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void GoToDashboard(Guid id) =>
+        Navigation.NavigateTo($"/dashboard/{id}");
+
+    private static string GetInitials(string fullName)
+    {
+        var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2
+            ? $"{parts[0][0]}{parts[1][0]}".ToUpper()
+            : fullName[..Math.Min(2, fullName.Length)].ToUpper();
+    }
+
+    private static string GetLangFlag(string lang) => lang switch
+    {
+        "Spanish"    => "🇪🇸",
+        "Portuguese" => "🇧🇷",
+        "French"     => "🇫🇷",
+        "German"     => "🇩🇪",
+        "Italian"    => "🇮🇹",
+        _            => "🌍"
+    };
+
+    // DTO local que coincide con la respuesta de GET /api/students
+    private record StudentSummaryDto(
+        Guid Id,
+        string FullName,
+        string Email,
+        string NativeLanguage,
+        int CurrentLevelScore,
+        int TotalLessonsCompleted,
+        int TotalPracticeMinutes,
+        DateTime RegisteredAt,
+        DateTime? LastActivityAt,
+        bool IsActive,
+        string ProficiencyLevel);
+}

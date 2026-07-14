@@ -1,0 +1,101 @@
+@page "/vocabulario"
+
+<PageTitle>Vocabulario — EnglishMasterAI</PageTitle>
+
+<div class="dashboard-page" style="max-width: 600px; margin: 0 auto; margin-top: 40px;">
+    <h2 class="section-title text-center mb-4">📝 Diccionario Rápido</h2>
+
+    <div class="action-form p-4" style="background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px;">
+        <p class="text-muted mb-4 text-center">Ingresa una palabra en inglés para obtener su traducción al español.</p>
+
+        <div class="form-group mb-3">
+            <input type="text" 
+                   class="form-control text-center" 
+                   placeholder="Ej: apple, car, sun..." 
+                   @bind="_wordToTranslate" 
+                   @bind:event="oninput" 
+                   @onkeyup="HandleKeyUp" />
+        </div>
+
+        <div class="text-center mb-4">
+            <button class="btn btn-primary" @onclick="TranslateWord" disabled="@string.IsNullOrWhiteSpace(_wordToTranslate)">
+                Traducir
+            </button>
+        </div>
+
+        @if (_hasSearched)
+        {
+            <div class="translation-result text-center p-3" style="background-color: #f8f9fa; border-radius: 8px; color: #333;">
+                @if (_translationFound)
+                {
+                    <h3 class="text-success mb-1">@_resultTranslation</h3>
+                    <small class="text-muted">Traducción encontrada</small>
+                }
+                else
+                {
+                    <h5 class="text-danger mb-1">Palabra no encontrada</h5>
+                    <small class="text-muted">Intenta con otra palabra (nuestro diccionario actual tiene 10 palabras de prueba).</small>
+                }
+            </div>
+        }
+
+        <div class="text-center mt-4">
+            <a href="/students" class="btn btn-secondary">Volver</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string _wordToTranslate = string.Empty;
+    private bool _hasSearched = false;
+    private bool _translationFound = false;
+    private string _resultTranslation = string.Empty;
+
+    // Diccionario estático en memoria con 100 palabras de prueba
+    private readonly Dictionary<string, string> _dictionary = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "apple", "Manzana" }, { "car", "Coche / Auto" }, { "sun", "Sol" }, { "book", "Libro" },
+        { "house", "Casa" }, { "tree", "Árbol" }, { "water", "Agua" }, { "dog", "Perro" },
+        { "cat", "Gato" }, { "computer", "Computadora / Ordenador" }, { "time", "Tiempo" },
+        { "person", "Persona" }, { "year", "Año" }, { "way", "Camino / Forma" }, { "day", "Día" },
+        { "thing", "Cosa" }, { "man", "Hombre" }, { "world", "Mundo" }, { "life", "Vida" },
+        { "hand", "Mano" }, { "part", "Parte" }, { "child", "Niño" }, { "eye", "Ojo" },
+        { "woman", "Mujer" }, { "place", "Lugar" }, { "work", "Trabajo" }, { "week", "Semana" },
+        { "case", "Caso" }, { "point", "Punto" }, { "government", "Gobierno" }, { "company", "Empresa" },
+        { "number", "Número" }, { "group", "Grupo" }, { "problem", "Problema" }, { "fact", "Hecho" },
+        { "be", "Ser / Estar" }, { "have", "Tener" }, { "do", "Hacer" }, { "say", "Decir" },
+        { "get", "Obtener" }, { "make", "Hacer" }, { "go", "Ir" }, { "know", "Saber / Conocer" },
+        { "take", "Tomar" }, { "see", "Ver" }, { "come", "Venir" }, { "think", "Pensar" },
+        { "look", "Mirar" }, { "want", "Querer" }, { "give", "Dar" }, { "use", "Usar" },
+        { "find", "Encontrar" }, { "tell", "Decir / Contar" }, { "ask", "Preguntar" }, { "work_verb", "Trabajar" },
+        { "seem", "Parecer" }, { "feel", "Sentir" }, { "try", "Intentar" }, { "leave", "Dejar / Salir" },
+        { "call", "Llamar" }, { "good", "Bueno" }, { "new", "Nuevo" }, { "first", "Primero" },
+        { "last", "Último" }, { "long", "Largo" }, { "great", "Genial" }, { "little", "Pequeño" },
+        { "own", "Propio" }, { "other", "Otro" }, { "old", "Viejo" }, { "right", "Correcto / Derecha" },
+        { "big", "Grande" }, { "high", "Alto" }, { "different", "Diferente" }, { "small", "Pequeño" },
+        { "large", "Grande" }, { "next", "Siguiente" }, { "early", "Temprano" }, { "young", "Joven" },
+        { "important", "Importante" }, { "few", "Pocos" }, { "public", "Público" }, { "bad", "Malo" },
+        { "same", "Mismo" }, { "able", "Capaz" }, { "to", "A / Hacia" }, { "of", "De" },
+        { "in", "En" }, { "for", "Para / Por" }, { "on", "En / Sobre" }, { "with", "Con" },
+        { "at", "En (Lugar/Tiempo)" }, { "by", "Por / Cerca de" }, { "from", "De / Desde" }, { "up", "Arriba" },
+        { "about", "Acerca de" }, { "into", "Dentro de" }, { "over", "Sobre / Encima" }, { "after", "Después" },
+        { "beneath", "Debajo" }
+    };
+
+    private void HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            TranslateWord();
+        }
+    }
+
+    private void TranslateWord()
+    {
+        if (string.IsNullOrWhiteSpace(_wordToTranslate)) return;
+
+        _hasSearched = true;
+        _translationFound = _dictionary.TryGetValue(_wordToTranslate.Trim().ToLower(), out string? translation);
+        _resultTranslation = translation ?? string.Empty;
+    }
+}

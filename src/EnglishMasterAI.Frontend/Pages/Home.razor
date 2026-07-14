@@ -1,0 +1,105 @@
+@page "/"
+
+<PageTitle>EnglishMasterAI — Aprende inglés con IA</PageTitle>
+
+<!-- ═══════════════════════════════════════════════════════
+     HERO SECTION
+════════════════════════════════════════════════════════════ -->
+<div class="container py-5">
+
+    <div class="text-center mb-5">
+        <div class="display-1 mb-3">🌟</div>
+        <h1 class="display-4 fw-bold text-primary mb-3">EnglishMasterAI</h1>
+        <p class="lead text-muted mb-4">
+            La plataforma inteligente que adapta cada lección a tu nivel y ritmo de aprendizaje.
+            Domina el inglés desde cero hasta la certificación <strong>C2</strong>.
+        </p>
+        <div class="d-flex justify-content-center gap-3 flex-wrap">
+            <a href="/register" class="btn btn-primary btn-lg px-5 shadow">
+                <i class="bi bi-person-plus-fill me-2"></i>Comenzar gratis
+            </a>
+            <a href="/dashboard" class="btn btn-outline-secondary btn-lg px-5">
+                <i class="bi bi-speedometer2 me-2"></i>Ver mi progreso
+            </a>
+        </div>
+    </div>
+
+    <!-- ── Características principales ── -->
+    <div class="row g-4 mb-5">
+
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm text-center p-4">
+                <div class="fs-1 mb-3">🤖</div>
+                <h5 class="fw-bold">IA Personalizada</h5>
+                <p class="text-muted small mb-0">
+                    Algoritmos adaptativos que ajustan el contenido y la dificultad según tu
+                    historial de errores y avance real.
+                </p>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm text-center p-4">
+                <div class="fs-1 mb-3">📊</div>
+                <h5 class="fw-bold">Progreso Visible</h5>
+                <p class="text-muted small mb-0">
+                    Dashboard en tiempo real con puntaje CEFR (A1→C2), lecciones completadas
+                    y minutos practicados.
+                </p>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm text-center p-4">
+                <div class="fs-1 mb-3">🏆</div>
+                <h5 class="fw-bold">Sistema de Niveles</h5>
+                <p class="text-muted small mb-0">
+                    Seis niveles del Marco Común Europeo. Cada lección suma puntos que
+                    desbloquean el siguiente nivel.
+                </p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ── Niveles CEFR resumidos ── -->
+    <div class="card border-0 shadow-sm p-4 mb-5">
+        <h4 class="fw-bold mb-4 text-center">
+            <i class="bi bi-map me-2 text-primary"></i>Tu ruta de aprendizaje
+        </h4>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 text-center">
+            @foreach (var level in _levels)
+            {
+                <div class="flex-fill">
+                    <div class="fs-2">@level.Emoji</div>
+                    <div class="fw-bold text-primary">@level.Code</div>
+                    <div class="small text-muted">@level.Name</div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- ── CTA final ── -->
+    <div class="text-center py-4">
+        <h4 class="fw-bold mb-3">¿Listo para comenzar?</h4>
+        <p class="text-muted mb-4">
+            Únete a miles de estudiantes que ya están mejorando su inglés con inteligencia artificial.
+        </p>
+        <a href="/register" class="btn btn-primary btn-lg px-5 shadow">
+            <i class="bi bi-rocket-takeoff-fill me-2"></i>Crear mi cuenta ahora
+        </a>
+    </div>
+
+</div>
+
+@code {
+    private readonly (string Emoji, string Code, string Name)[] _levels =
+    {
+        ("🌱", "A1", "Principiante"),
+        ("🌿", "A2", "Básico"),
+        ("🌳", "B1", "Intermedio"),
+        ("🌟", "B2", "Interm. Alto"),
+        ("🏆", "C1", "Avanzado"),
+        ("👑", "C2", "Maestría"),
+    };
+}

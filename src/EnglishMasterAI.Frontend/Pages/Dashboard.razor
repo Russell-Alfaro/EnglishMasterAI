@@ -1,0 +1,492 @@
+@page "/dashboard/{StudentId:guid}"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Mi Dashboard — EnglishMasterAI</PageTitle>
+
+@if (_isLoading)
+{
+    <div class="loading-container">
+        <div class="spinner-large"></div>
+        <p>Cargando tu progreso...</p>
+    </div>
+}
+else if (_dashboard is not null)
+{
+    <div class="dashboard-page">
+
+        <!-- Alerta de feedback de acción -->
+        @if (_actionFeedback is not null)
+        {
+            <div class="alert alert-success d-flex align-items-center mb-0" role="alert">
+                <i class="bi bi-check-circle-fill me-2"></i>
+                <div>@_actionFeedback</div>
+            </div>
+        }
+        @if (_actionError is not null)
+        {
+            <div class="alert alert-danger d-flex align-items-center mb-0" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <div>@_actionError</div>
+            </div>
+        }
+
+        <!-- Hero del estudiante -->
+        <div class="student-hero">
+            <div class="avatar-container">
+                <div class="avatar">@GetInitials(_dashboard.FullName)</div>
+                <div class="level-badge">@GetLevelEmoji(_dashboard.ProficiencyLevel)</div>
+            </div>
+            <div class="student-info">
+                <h1 class="student-name">@_dashboard.FullName</h1>
+                <span class="proficiency-badge">@_dashboard.ProficiencyLevel</span>
+            </div>
+        </div>
+
+        <!-- Barra de progreso global -->
+        <div class="progress-section">
+            <div class="progress-header">
+                <span>Progreso hacia el siguiente nivel</span>
+                <span class="progress-pct">@_dashboard.ProgressPercentage%</span>
+            </div>
+            <div class="progress-bar-track">
+                <div class="progress-bar-fill"
+                     style="width: @(_dashboard.ProgressPercentage)%">
+                </div>
+            </div>
+            <div class="text-center mt-3 d-flex gap-2 justify-content-center">
+                <button class="btn btn-primary"
+                        disabled="@_isActionRunning"
+                        @onclick="HandleLevelUp"
+                        id="btn-level-up">
+                    @if (_isActionRunning && _lastAction == "levelup")
+                    {
+                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                    }
+                    else { <span>⬆️</span> }
+                    <span>Ascender Nivel</span>
+                </button>
+
+                <button class="btn btn-outline-secondary"
+                        disabled="@_isLoading"
+                        @onclick="RefreshDashboard">
+                    <span>🔄 Actualizar Datos</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Tarjetas de estadísticas -->
+        <div class="stats-grid">
+            <div class="stat-card stat-score">
+                <div class="stat-icon">⭐</div>
+                <div class="stat-value">@_dashboard.CurrentLevelScore</div>
+                <div class="stat-label">Puntos Totales</div>
+            </div>
+
+            <div class="stat-card stat-lessons">
+                <div class="stat-icon">📚</div>
+                <div class="stat-value">@_dashboard.TotalLessonsCompleted</div>
+                <div class="stat-label">Lecciones Completadas</div>
+            </div>
+
+            <div class="stat-card stat-time">
+                <div class="stat-icon">⏱️</div>
+                <div class="stat-value">@FormatMinutes(_dashboard.TotalPracticeMinutes)</div>
+                <div class="stat-label">Tiempo Practicado</div>
+            </div>
+
+            <div class="stat-card stat-grade">
+                <div class="stat-icon">📝</div>
+                <div class="stat-value">@_dashboard.AveragePracticeGrade.ToString("F1")</div>
+                <div class="stat-label">Promedio Notas</div>
+            </div>
+        </div>
+
+        <!-- Mapa de niveles CEFR -->
+        <div class="levels-card">
+            <h2 class="section-title">🗺️ Tu Camino CEFR</h2>
+            <div class="levels-track">
+                @foreach (var level in _cefrLevels)
+                {
+                    // Lógica estricta basada exclusivamente en la propiedad ProficiencyLevel devuelta por la API.
+                    // No hay cálculos inferidos localmente.
+                    string currentLevelBase = _dashboard.ProficiencyLevel.Split(' ')[0];
+                    bool isCurrentOrPast = IsCurrentOrPastLevel(level.Key, currentLevelBase);
+                    bool isCurrent = currentLevelBase == level.Key;
+
+                    <div class="level-node @(isCurrentOrPast ? "level-achieved" : "") @(isCurrent ? "level-current" : "")">
+                        <div class="level-circle">@(isCurrent ? "📍" : isCurrentOrPast ? "✓" : "○")</div>
+                        <div class="level-name">@level.Key</div>
+                        <div class="level-desc">@level.Value</div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Acciones rápidas (FUNCIONALES) -->
+        <div class="actions-card">
+            <h2 class="section-title">⚡ Acciones Rápidas</h2>
+
+            @if (_showLessonForm)
+            {
+                <div class="action-form">
+                    <h3>📖 Registrar Lección</h3>
+                    <p class="small text-muted">Asegúrate de completar hasta 10 lecciones para el curso.</p>
+                    <div class="form-group">
+                        <label>Número de Lección</label>
+                        <input type="number" class="form-control" @bind="_lessonModel.LessonNumber" min="1" max="10" />
+                    </div>
+                    <div class="form-group">
+                        <label>Duración (minutos)</label>
+                        <input type="number" class="form-control" @bind="_lessonModel.DurationMinutes" min="1" />
+                    </div>
+                    <div class="d-flex gap-2 mt-2">
+                        <button class="btn btn-success" @onclick="SubmitLesson" disabled="@_isActionRunning">Guardar</button>
+                        <button class="btn btn-secondary" @onclick="() => _showLessonForm = false" disabled="@_isActionRunning">Cancelar</button>
+                    </div>
+                </div>
+            }
+            else if (_showPracticeForm)
+            {
+                <div class="action-form">
+                    <h3>🎯 Registrar Práctica</h3>
+                    <div class="form-group">
+                        <label>Nota (0-20)</label>
+                        <input type="number" class="form-control" @bind="_practiceModel.Grade" min="0" max="20" />
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo de Evaluación</label>
+                        <select class="form-select" @bind="_practiceModel.PracticeType">
+                            <option value="Examen oral">Examen oral</option>
+                            <option value="Escrito">Escrito</option>
+                            <option value="Conversación">Conversación</option>
+                            <option value="Proyecto final">Proyecto final</option>
+                        </select>
+                    </div>
+                    <div class="d-flex gap-2 mt-2">
+                        <button class="btn btn-success" @onclick="SubmitPractice" disabled="@_isActionRunning">Guardar</button>
+                        <button class="btn btn-secondary" @onclick="() => _showPracticeForm = false" disabled="@_isActionRunning">Cancelar</button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="actions-grid">
+                    <button class="action-btn action-lesson"
+                            disabled="@_isActionRunning"
+                            @onclick="() => _showLessonForm = true"
+                            id="btn-nueva-leccion">
+                        <span>📖</span>
+                        <span>Nueva Lección</span>
+                    </button>
+
+                    <button class="action-btn action-practice"
+                            disabled="@_isActionRunning"
+                            @onclick="() => _showPracticeForm = true"
+                            id="btn-practica">
+                        <span>🎯</span>
+                        <span>Práctica</span>
+                    </button>
+
+                    <a class="action-btn action-quiz" href="/quiz" id="btn-quiz" style="text-decoration:none; color:inherit; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                        <span>🧠</span>
+                        <span>Quiz Rápido</span>
+                    </a>
+
+                    <a class="action-btn action-vocab" href="/vocabulario" id="btn-vocabulario" style="text-decoration:none; color:inherit; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                        <span>📝</span>
+                        <span>Vocabulario</span>
+                    </a>
+                </div>
+            }
+        </div>
+
+        <div class="actions-card mt-4">
+            <h2 class="section-title">📊 Historial de Prácticas</h2>
+            @if (_dashboard.PracticeHistory != null && _dashboard.PracticeHistory.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Tipo de Evaluación</th>
+                                <th>Nota</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var practice in _dashboard.PracticeHistory)
+                            {
+                                <tr>
+                                    <td>@practice.CompletedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td>@practice.PracticeType</td>
+                                    <td><strong>@practice.Grade</strong> / 20</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p class="text-muted small">No hay prácticas registradas aún. ¡Realiza tu primera práctica!</p>
+            }
+        </div>
+
+        <div class="text-center mt-2">
+            <a href="/students" class="text-muted small">
+                <i class="bi bi-arrow-left me-1"></i>Volver a la lista de estudiantes
+            </a>
+        </div>
+
+    </div>
+}
+else
+{
+    <div class="error-container">
+        <p>⚠️ No se pudo cargar el dashboard. <a href="/students">Volver a la lista</a></p>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid StudentId { get; set; }
+
+    private StudentDashboardDto? _dashboard;
+    private bool _isLoading    = true;
+    private bool _isActionRunning = false;
+    private string? _actionFeedback;
+    private string? _actionError;
+    private string? _lastAction;
+
+    // ── Recarga al cambiar parámetro (persistencia al cambiar de pestaña) ──
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading      = true;
+        _dashboard      = null;
+        _actionFeedback = null;
+        _actionError    = null;
+        await LoadDashboardAsync();
+    }
+
+    private async Task RefreshDashboard()
+    {
+        _isLoading = true;
+        await LoadDashboardAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadDashboardAsync()
+    {
+        try
+        {
+            _dashboard = await Http.GetFromJsonAsync<StudentDashboardDto>(
+                $"api/students/{StudentId}/dashboard");
+        }
+        catch
+        {
+            _dashboard = null;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private bool _showLessonForm = false;
+    private bool _showPracticeForm = false;
+
+    private LessonModel _lessonModel = new() { LessonNumber = 1, DurationMinutes = 30 };
+    private PracticeModel _practiceModel = new() { Grade = 15, PracticeType = "Examen oral" };
+
+    private class LessonModel
+    {
+        public int LessonNumber { get; set; }
+        public int DurationMinutes { get; set; }
+    }
+
+    private class PracticeModel
+    {
+        public int Grade { get; set; }
+        public string PracticeType { get; set; } = string.Empty;
+    }
+
+    private async Task SubmitLesson()
+    {
+        _isActionRunning = true;
+        _lastAction = "lesson";
+        _actionFeedback = null;
+        _actionError = null;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync(
+                $"api/students/{StudentId}/lessons",
+                _lessonModel);
+
+            await HandleResponse(response, "Lección registrada exitosamente.");
+            if (response.IsSuccessStatusCode)
+            {
+                _showLessonForm = false;
+                _lessonModel.LessonNumber++;
+            }
+        }
+        catch (Exception ex)
+        {
+            _actionError = $"Error de conexión: {ex.Message}";
+        }
+        finally
+        {
+            _isActionRunning = false;
+        }
+    }
+
+    private async Task SubmitPractice()
+    {
+        _isActionRunning = true;
+        _lastAction = "practice";
+        _actionFeedback = null;
+        _actionError = null;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync(
+                $"api/students/{StudentId}/practices",
+                _practiceModel);
+
+            await HandleResponse(response, "Práctica registrada exitosamente.");
+            if (response.IsSuccessStatusCode)
+            {
+                _showPracticeForm = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _actionError = $"Error de conexión: {ex.Message}";
+        }
+        finally
+        {
+            _isActionRunning = false;
+        }
+    }
+
+    private async Task HandleLevelUp()
+    {
+        _isActionRunning = true;
+        _lastAction = "levelup";
+        _actionFeedback = null;
+        _actionError = null;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync(
+                $"api/students/{StudentId}/level-up",
+                new { });
+
+            await HandleResponse(response, "¡Felicidades! Has ascendido de nivel.");
+        }
+        catch (Exception ex)
+        {
+            _actionError = $"Error de conexión: {ex.Message}";
+        }
+        finally
+        {
+            _isActionRunning = false;
+        }
+    }
+
+    private async Task HandleResponse(HttpResponseMessage response, string successMsg)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            _dashboard = await Http.GetFromJsonAsync<StudentDashboardDto>(
+                $"api/students/{StudentId}/dashboard");
+
+            _actionFeedback = successMsg;
+
+            // Auto-dismiss del mensaje de éxito en 3 segundos
+            _ = Task.Delay(3000).ContinueWith(_ =>
+            {
+                _actionFeedback = null;
+                InvokeAsync(StateHasChanged);
+            });
+        }
+        else
+        {
+            try
+            {
+                var errorResult = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                if (errorResult.TryGetProperty("detail", out var detail))
+                {
+                    _actionError = detail.GetString();
+                }
+                else
+                {
+                    _actionError = "No se pudo procesar la solicitud correctamente.";
+                }
+            }
+            catch
+            {
+                _actionError = $"Error {(int)response.StatusCode}: Ocurrió un error en el servidor.";
+            }
+        }
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+    private static string GetInitials(string fullName)
+    {
+        var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2
+            ? $"{parts[0][0]}{parts[1][0]}".ToUpper()
+            : fullName[..Math.Min(2, fullName.Length)].ToUpper();
+    }
+
+    private static string FormatMinutes(int minutes) =>
+        minutes >= 60
+            ? $"{minutes / 60}h {minutes % 60} min"
+            : $"{minutes} minutos";
+
+    private static string GetLevelEmoji(string level) => level switch
+    {
+        var l when l.StartsWith("A1") => "🌱",
+        var l when l.StartsWith("A2") => "🌿",
+        var l when l.StartsWith("B1") => "🌳",
+        var l when l.StartsWith("B2") => "🌟",
+        var l when l.StartsWith("C1") => "🏆",
+        _                             => "👑"
+    };
+
+    private readonly Dictionary<string, string> _cefrLevels = new()
+    {
+        { "A1", "Principiante" },
+        { "A2", "Basico" },
+        { "B1", "Intermedio" },
+        { "B2", "Interm. Alto" },
+        { "C1", "Avanzado" },
+        { "C2", "Maestria" }
+    };
+
+    private static bool IsCurrentOrPastLevel(string levelKey, string currentLevel)
+    {
+        var order = new[] { "A1", "A2", "B1", "B2", "C1", "C2" };
+        int current = Array.IndexOf(order, currentLevel.Split(' ')[0]);
+        int check   = Array.IndexOf(order, levelKey);
+        return check <= current;
+    }
+
+    public record StudentDashboardDto(
+        Guid   StudentId,
+        string FullName,
+        int    CurrentLevelScore,
+        int    TotalLessonsCompleted,
+        int    TotalPracticeMinutes,
+        string ProficiencyLevel,
+        double ProgressPercentage,
+        double AveragePracticeGrade,
+        List<PracticeDto> PracticeHistory);
+
+    public record PracticeDto(
+        int Grade,
+        string PracticeType,
+        DateTime CompletedAt);
+}

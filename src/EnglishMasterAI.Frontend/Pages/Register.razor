@@ -1,0 +1,254 @@
+@page "/register"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Registro — EnglishMasterAI</PageTitle>
+
+<div class="register-page">
+    <div class="register-card">
+        <!-- Logo / Header -->
+        <div class="register-header">
+            <div class="logo">🌟</div>
+            <h1 class="brand-title">EnglishMasterAI</h1>
+            <p class="brand-subtitle">Aprende inglés con Inteligencia Artificial</p>
+        </div>
+
+        <!-- Mensajes de estado (Bootstrap Alerts) -->
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div class="alert alert-danger alert-dismissible d-flex align-items-center" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <div>@_errorMessage</div>
+                <button type="button" class="btn-close ms-auto" aria-label="Cerrar"
+                        @onclick="() => _errorMessage = string.Empty"></button>
+            </div>
+        }
+
+        @if (_registrationSuccess)
+        {
+            <div class="alert alert-success d-flex align-items-center" role="alert">
+                <i class="bi bi-check-circle-fill me-2"></i>
+                <div>¡Registro exitoso! Redirigiendo a tu dashboard...</div>
+            </div>
+        }
+
+        <!-- Formulario -->
+        <EditForm Model="_model" OnValidSubmit="HandleRegister" class="register-form">
+            <DataAnnotationsValidator />
+
+            <div class="form-group">
+                <label for="fullName">Nombre Completo</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">👤</span>
+                    <InputText id="fullName"
+                               @bind-Value="_model.FullName"
+                               class="form-input"
+                               placeholder="Ej: Ana García López" />
+                </div>
+                <ValidationMessage For="@(() => _model.FullName)" class="validation-msg" />
+            </div>
+
+            <div class="form-group">
+                <label for="email">Correo Electrónico</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">📧</span>
+                    <InputText id="email"
+                               @bind-Value="_model.Email"
+                               class="form-input"
+                               placeholder="tu@correo.com" />
+                </div>
+                <ValidationMessage For="@(() => _model.Email)" class="validation-msg" />
+            </div>
+
+            <div class="form-group">
+                <label for="password">Contraseña</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">🔒</span>
+                    <InputText id="password"
+                               type="password"
+                               @bind-Value="_model.Password"
+                               class="form-input"
+                               placeholder="Mínimo 8 caracteres" />
+                </div>
+                <ValidationMessage For="@(() => _model.Password)" class="validation-msg" />
+            </div>
+
+            <div class="form-group">
+                <label for="nativeLanguage">Idioma Nativo</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">🌍</span>
+                    <InputSelect id="nativeLanguage"
+                                 @bind-Value="_model.NativeLanguage"
+                                 class="form-input form-select">
+                        <option value="Spanish">Español</option>
+                        <option value="Portuguese">Portugués</option>
+                        <option value="French">Francés</option>
+                        <option value="German">Alemán</option>
+                        <option value="Italian">Italiano</option>
+                    </InputSelect>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="initialLevel">Nivel de Inglés Inicial</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">🎓</span>
+                    <InputSelect id="initialLevel"
+                                 @bind-Value="_model.InitialLevel"
+                                 class="form-input form-select">
+                        <option value="A1">A1 - Principiante</option>
+                        <option value="A2">A2 - Básico</option>
+                        <option value="B1">B1 - Intermedio</option>
+                        <option value="B2">B2 - Intermedio Alto</option>
+                        <option value="C1">C1 - Avanzado</option>
+                        <option value="C2">C2 - Maestría</option>
+                    </InputSelect>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-primary" disabled="@_isLoading" id="btn-register">
+                @if (_isLoading)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    <span>Registrando...</span>
+                }
+                else
+                {
+                    <i class="bi bi-rocket-takeoff-fill me-2"></i>
+                    <span>Comenzar mi viaje</span>
+                }
+            </button>
+        </EditForm>
+
+        <p class="login-link">
+            ¿Ya tienes cuenta?
+            <a href="/">Inicia sesión aquí</a>
+        </p>
+    </div>
+</div>
+
+@code {
+    private readonly RegisterModel _model = new();
+    private bool _isLoading = false;
+    private bool _registrationSuccess = false;
+    private string _errorMessage = string.Empty;
+
+    private async Task HandleRegister()
+    {
+        _isLoading = true;
+        _errorMessage = string.Empty;
+        _registrationSuccess = false;
+
+        try
+        {
+            var command = new
+            {
+                fullName       = _model.FullName,
+                email          = _model.Email,
+                password       = _model.Password,
+                nativeLanguage = _model.NativeLanguage,
+                initialLevel   = _model.InitialLevel
+            };
+
+            var response = await Http.PostAsJsonAsync("api/students", command);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var student = await response.Content
+                    .ReadFromJsonAsync<StudentDto>();
+
+                _registrationSuccess = true;
+
+                // Redirigir al dashboard después de 2 segundos
+                await Task.Delay(2000);
+                Navigation.NavigateTo($"/dashboard/{student?.Id}");
+            }
+            else
+            {
+                // ── Extraer el mensaje EXACTO que devuelve la API ──────────
+                // La API puede devolver: { "message": "..." }, { "title": "..." }
+                // o texto plano. Intentamos leerlo de la forma más robusta posible.
+                string rawBody = await response.Content.ReadAsStringAsync();
+
+                _errorMessage = TryExtractApiMessage(rawBody, (int)response.StatusCode);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "No se pudo conectar con el servidor. Verifica tu conexión o que la API esté en ejecución.";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error inesperado: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// Intenta extraer el mensaje de error real del cuerpo JSON de la API.
+    /// Soporta: { "message": "..." }, { "title": "..." }, { "detail": "..." } o texto plano.
+    /// </summary>
+    private static string TryExtractApiMessage(string rawBody, int statusCode)
+    {
+        if (string.IsNullOrWhiteSpace(rawBody))
+            return statusCode switch
+            {
+                409 => "Este correo ya está registrado. ¿Olvidaste tu contraseña?",
+                400 => "Los datos enviados no son válidos.",
+                500 => "Error interno del servidor. Intenta más tarde.",
+                _   => $"Error {statusCode}. Por favor intenta de nuevo."
+            };
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(rawBody);
+            var root = doc.RootElement;
+
+            // Intentar campos comunes de respuesta de error
+            foreach (var field in new[] { "message", "Message", "title", "Title", "detail", "Detail" })
+            {
+                if (root.TryGetProperty(field, out var prop) &&
+                    prop.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    var val = prop.GetString();
+                    if (!string.IsNullOrWhiteSpace(val)) return val!;
+                }
+            }
+
+            // Si no encontró campos conocidos, devuelve el body como texto
+            return rawBody.Length <= 200 ? rawBody : rawBody[..200] + "...";
+        }
+        catch
+        {
+            // El body no era JSON (ej. texto plano HTML de un error de gateway)
+            return rawBody.Length <= 200 ? rawBody : rawBody[..200] + "...";
+        }
+    }
+
+    // Modelo de formulario con anotaciones de validación
+    public class RegisterModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El nombre es obligatorio")]
+        [System.ComponentModel.DataAnnotations.MinLength(3, ErrorMessage = "Mínimo 3 caracteres")]
+        public string FullName { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El correo es obligatorio")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Correo inválido")]
+        public string Email { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "La contraseña es obligatoria")]
+        [System.ComponentModel.DataAnnotations.MinLength(8, ErrorMessage = "Mínimo 8 caracteres")]
+        public string Password { get; set; } = string.Empty;
+
+        public string NativeLanguage { get; set; } = "Spanish";
+
+        public string InitialLevel { get; set; } = "A1";
+    }
+
+    // DTO mínimo para deserializar la respuesta
+    public record StudentDto(Guid Id, string FullName, string Email);
+}
