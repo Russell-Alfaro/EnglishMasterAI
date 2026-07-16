@@ -3,4 +3,6 @@ obj/
 *.user
 .vs/
 *.db
-appsettings.Development.json
+CoverageReport/
+TestResults/
+appsettings.Development.jsongit rm -r --cached tests/EnglishMasterAI.Tests.Unit/obj

@@ -50,8 +50,9 @@ var app = builder.Build();
 // IMPORTANTE: usamos Migrate() en vez de EnsureCreated() porque EnsureCreated()
 // NO aplica migraciones nuevas si la base de datos ya existe — con Migrate()
 // cualquier tabla/columna agregada en una migración futura se crea automáticamente.
-using (var scope = app.Services.CreateScope())
+if (!app.Environment.IsEnvironment("Testing"))
 {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
 }
